@@ -1,0 +1,39 @@
+{
+ "hits": {
+  "total": {
+   "value": 2
+  },
+  "hits": [
+   {
+    "_id": "0001234567-26-000030:prospectus.htm",
+    "_source": {
+     "ciks": [
+      "0001234567"
+     ],
+     "display_names": [
+      "Example Corp  (EXMP)  (CIK 0001234567)"
+     ],
+     "file_date": "2026-06-11",
+     "form": "424B4",
+     "file_type": "424B4",
+     "adsh": "0001234567-26-000030"
+    }
+   },
+   {
+    "_id": "0009999999-26-000001:ex10.htm",
+    "_source": {
+     "ciks": [
+      "0009999999"
+     ],
+     "display_names": [
+      "Other Co (CIK 0009999999)"
+     ],
+     "file_date": "2026-05-01",
+     "form": "S-1",
+     "file_type": "EX-10.1",
+     "adsh": "0009999999-26-000001"
+    }
+   }
+  ]
+ }
+}

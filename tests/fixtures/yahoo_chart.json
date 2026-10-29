@@ -1,0 +1,93 @@
+{
+ "chart": {
+  "result": [
+   {
+    "meta": {
+     "currency": "USD",
+     "symbol": "EXMP",
+     "exchangeName": "NMS",
+     "fullExchangeName": "NasdaqGS",
+     "regularMarketTime": 1793217600,
+     "gmtoffset": -14400,
+     "exchangeTimezoneName": "America/New_York",
+     "regularMarketPrice": 104.5,
+     "fiftyTwoWeekHigh": 150.0,
+     "fiftyTwoWeekLow": 80.0,
+     "regularMarketDayHigh": 106.0,
+     "regularMarketDayLow": 97.0,
+     "regularMarketVolume": 12345678,
+     "longName": "Example Corp",
+     "shortName": "Example",
+     "chartPreviousClose": 98.0
+    },
+    "timestamp": [
+     1792589400,
+     1792675800,
+     1792762200,
+     1793021400,
+     1793107800,
+     1793194200
+    ],
+    "indicators": {
+     "quote": [
+      {
+       "open": [
+        99.0,
+        109.0,
+        98.0,
+        87.0,
+        94.0,
+        103.5
+       ],
+       "high": [
+        102.0,
+        112.0,
+        101.0,
+        90.0,
+        97.0,
+        106.5
+       ],
+       "low": [
+        97.0,
+        107.0,
+        96.0,
+        85.0,
+        92.0,
+        101.5
+       ],
+       "close": [
+        100.0,
+        110.0,
+        99.0,
+        88.0,
+        95.0,
+        104.5
+       ],
+       "volume": [
+        1000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+       ]
+      }
+     ],
+     "adjclose": [
+      {
+       "adjclose": [
+        100.0,
+        110.0,
+        99.0,
+        88.0,
+        95.0,
+        104.5
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "error": null
+ }
+}

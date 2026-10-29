@@ -1,0 +1,12 @@
+# 本地缓存和输出
+.cache/
+out/
+__pycache__/
+*.pyc
+
+# 个人财务信息（仓库是公开的）
+portfolio/holdings.csv
+portfolio/*.private.csv
+private/
+
+.DS_Store
