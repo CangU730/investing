@@ -96,6 +96,15 @@
 - **SpaceX**：见 `research/SPCX/thesis.md` 的证伪信号。
 - **特斯拉**（如果已持有）：合并溢价低于 10% 或谈判终止；Q4 交付不及预期；NHTSA 正式立案调查。
 
+## 10/30 盘前更新
+
+- **科技股继续下跌**：纳指 100 期货约 -2%，标普 500 期货约 -1%。亚马逊营收 +12% 略低于预期，盘前 -7%。英特尔 Q4 指引远低于预期（营收 $150–160 亿，预期约 $170 亿；EPS $0.25，预期 $0.43），盘前跌 20%–26%，原因是 PC 需求疲软、内存短缺和以色列工厂事故；它的代工业务收入仍增长 58%。布伦特原油约 $112–113。
+- **对台积电**：英特尔的问题主要来自它自己和 PC 市场，对台积电 AI 业务的直接影响有限，但整个芯片板块会被拖累。建议不变，第 1 批可以分几天买或挂限价单，不必在开盘时一次买完。
+- **对 SpaceX**：彭博报道 Customer B 就是 Anthropic（两家公司均未确认），10/29 盘后 -2.9% 至 $139.67。客户集中风险更具体，继续等 12/8 解禁后再考虑。
+- **对特斯拉**：摩根大通研究认为合并最可能是 SpaceX 主导、全换股、溢价 30%–35%，中国审批是最大障碍；对特斯拉维持中性、目标价 $415（单一来源）。建议不变。
+- **对摩根大通**：资金从科技股流向其他板块，对银行股相对有利，但估值不便宜，建议不变。
+- 来源：[Bloomberg：美股期货](https://www.bloomberg.com/news/articles/2026-10-30/us-stock-futures-today-amazon-intel-mondelez-reddit-stryker)、[Yahoo Finance：10/30 市场](https://finance.yahoo.com/markets/live/stock-market-today-friday-october-30-dow-sp-500-nasdaq-083236552.html)、[CNBC：英特尔](https://www.cnbc.com/2026/10/29/intel-intc-q3-earnings-report-2026-.html)、[Seeking Alpha：SpaceX 与 Anthropic](https://seekingalpha.com/news/4660687-spacex-is-said-to-earn-more-than-a-third-of-revenue-from-anthropic)、[Investing.com：SpaceX 盘后](https://www.investing.com/news/stock-market-news/why-is-spacex-stock-falling-afterhours-today-93CH-4985677)、[Stocktwits：摩根大通谈合并](https://stocktwits.com/news-articles/markets/equity/tsla-jpmorgan-spacex-merger-china-risks/cZmVfIaR7ZH)
+
 ## 主要来源
 
 完整来源列表见各股简报。关键来源：
