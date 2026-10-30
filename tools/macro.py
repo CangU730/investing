@@ -15,6 +15,7 @@ import csv
 import io
 import json
 import os
+import statistics
 import sys
 import urllib.parse
 from datetime import date, timedelta
@@ -51,6 +52,9 @@ ALIASES = {
     "sp500": ("SP500", "标普 500 指数", "level"),
 }
 DASHBOARD = ["fedfunds", "us2y", "us10y", "10y2y", "core_cpi", "core_pce", "unrate", "payrolls", "vix", "hy_spread"]
+
+# FRED 会限流云服务器的 IP；这些市场数据可以改从 Yahoo Finance 取
+YAHOO_FALLBACK = {"us3m": "^IRX", "us10y": "^TNX", "us30y": "^TYX", "vix": "^VIX", "sp500": "^GSPC", "wti": "CL=F"}
 
 
 def fetch_series(series_id: str, start: str) -> list[tuple[str, float]]:
@@ -102,19 +106,35 @@ def value_at(rows: list[tuple[str, float]], target: date):
     return earlier[-1] if earlier else None
 
 
+def yahoo_series(symbol: str, start: str) -> list[tuple[str, float]]:
+    from quote import from_yahoo  # 只有备用源用得到
+
+    days = (date.today() - date.fromisoformat(start)).days
+    rng = next((r for r, d in (("1y", 366), ("2y", 731), ("5y", 1827)) if days <= d), "max")
+    rows = [(b["date"], b["close"]) for b in from_yahoo(symbol, rng)["bars"] or [] if b["date"] >= start]
+    if not rows:
+        raise FetchError(f"Yahoo Finance 没有 {symbol} 的数据")
+    if symbol in ("^IRX", "^TNX", "^TYX") and statistics.median(v for _, v in rows) > 20:
+        rows = [(d, v / 10) for d, v in rows]  # 老口径是收益率 × 10
+    return rows
+
+
 def fmt(v, mode: str) -> str:
     if v is None:
         return "—"
     if mode == "yoy":
         return f"{v:.2f}%"
+    if mode == "diff":
+        return f"{v:+,.0f}"
     if abs(v) >= 1000:
         return f"{v:,.0f}"
     return f"{v:.2f}"
 
 
-def summarize(alias: str, series_id: str, name: str, mode: str, start: str) -> dict:
+def summarize(alias: str, series_id: str, name: str, mode: str, start: str, source: str = "FRED") -> dict:
     fetch_start = (date.fromisoformat(start) - timedelta(days=400)).isoformat() if mode != "level" else start
-    rows = transform(fetch_series(series_id, fetch_start), mode)
+    raw = yahoo_series(YAHOO_FALLBACK[alias], start) if source == "Yahoo" else fetch_series(series_id, fetch_start)
+    rows = transform(raw, mode)
     rows = [r for r in rows if r[0] >= start] or rows
     last_date, last = rows[-1]
     end = date.fromisoformat(last_date)
@@ -126,7 +146,7 @@ def summarize(alias: str, series_id: str, name: str, mode: str, start: str) -> d
         ago[label] = hit[1] if hit and 0 < gap <= days * 1.5 + 3 else None
     values = [v for _, v in rows]
     return {"alias": alias, "series": series_id, "name": name, "mode": mode, "date": last_date, "value": last,
-            **ago, "min": min(values), "max": max(values), "rows": rows}
+            **ago, "min": min(values), "max": max(values), "rows": rows, "source": source}
 
 
 def main() -> int:
@@ -145,15 +165,30 @@ def main() -> int:
         return 0
 
     results, problems, blocked = [], [], []
+    fred_down = False
     for item in args.series or DASHBOARD:
         if item.lower() in ALIASES:
             series_id, name, mode = ALIASES[item.lower()]
         else:
             series_id, name, mode = item.upper(), item.upper(), "yoy" if args.yoy else "level"
+        alias = item.lower()
         try:
-            results.append(summarize(item, series_id, name, mode, args.start))
+            if blocked or fred_down:  # FRED 已经连不上，不再逐个重试
+                if alias not in YAHOO_FALLBACK:
+                    problems.append(f"{item}：跳过（FRED 取不到，也没有备用源）")
+                    continue
+                results.append(summarize(alias, series_id, name, mode, args.start, source="Yahoo"))
+                continue
+            try:
+                results.append(summarize(alias, series_id, name, mode, args.start))
+            except FetchError:
+                fred_down = True
+                if alias not in YAHOO_FALLBACK:
+                    raise
+                results.append(summarize(alias, series_id, name, mode, args.start, source="Yahoo"))
         except BlockedError as e:
-            blocked.append(e.host)
+            if e.host not in blocked:
+                blocked.append(e.host)
         except FetchError as e:
             problems.append(f"{item}：{e}")
     if not results and blocked:
@@ -164,11 +199,12 @@ def main() -> int:
     if args.json:
         print(json.dumps([{k: v for k, v in r.items() if k != "rows"} for r in results], ensure_ascii=False, indent=2))
     else:
-        print(f"宏观数据（区间 {args.start} 起）  来源：FRED, Federal Reserve Bank of St. Louis")
+        print(f"宏观数据（区间 {args.start} 起）  来源：FRED, Federal Reserve Bank of St. Louis；标注 Yahoo 的来自 Yahoo Finance")
         rows = [[r["name"], r["date"], fmt(r["value"], r["mode"]), fmt(r["1周前"], r["mode"]), fmt(r["1月前"], r["mode"]),
-                 fmt(r["3月前"], r["mode"]), fmt(r["1年前"], r["mode"]), f"{fmt(r['min'], r['mode'])} – {fmt(r['max'], r['mode'])}"]
+                 fmt(r["3月前"], r["mode"]), fmt(r["1年前"], r["mode"]), f"{fmt(r['min'], r['mode'])} – {fmt(r['max'], r['mode'])}",
+                 "Yahoo" if r["source"] == "Yahoo" else "FRED"]
                 for r in results]
-        print_table(["指标", "日期", "最新", "1周前", "1月前", "3月前", "1年前", "区间低–高"], rows)
+        print_table(["指标", "日期", "最新", "1周前", "1月前", "3月前", "1年前", "区间低–高", "来源"], rows, align="lrrrrrrrl")
     if args.csv and results:
         Path(args.csv).parent.mkdir(parents=True, exist_ok=True)
         with open(args.csv, "w", newline="", encoding="utf-8") as f:

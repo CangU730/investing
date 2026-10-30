@@ -19,7 +19,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import BROWSER_UA, SEC_UA, print_table, run  # noqa: E402
+from common import print_table, run, user_agent_for  # noqa: E402
 
 # (用途, 域名列表, 重要性)
 SOURCES = [
@@ -40,8 +40,7 @@ SOURCES = [
 
 def probe(host: str) -> tuple[str, str]:
     """返回 (状态, 说明)。服务器自己返回的 4xx/5xx 也算“能访问”，只有代理拦截才算“被拦截”。"""
-    ua = SEC_UA if host.endswith("sec.gov") else BROWSER_UA
-    request = urllib.request.Request(f"https://{host}/", headers={"User-Agent": ua}, method="HEAD")
+    request = urllib.request.Request(f"https://{host}/", headers={"User-Agent": user_agent_for(host)}, method="HEAD")
     try:
         with urllib.request.urlopen(request, timeout=10) as resp:
             return "可访问", f"HTTP {resp.status}"
@@ -74,18 +73,23 @@ def main() -> int:
     print_table(["用途", "域名", "重要性", "状态", "说明"],
                 [[r["purpose"], r["host"], r["level"], r["status"], r["detail"]] for r in report], align="lllll")
     blocked = [r for r in report if r["status"] == "被拦截"]
-    core_blocked = [r for r in blocked if r["level"] == "核心"]
+    unreachable = [r for r in report if r["status"] == "连不上"]
     print()
-    if not blocked:
+    if not blocked and not unreachable:
         print("全部数据源都能访问。")
         return 0
-    print(f"有 {len(blocked)} 个域名被网络策略拦截，其中核心数据源 {len(core_blocked)} 个。")
-    print("需要放行（复制到云环境设置 → Network access → Allowed domains）：")
-    for level in ("核心", "备用", "可选", "推荐"):
-        names = [r["host"] for r in blocked if r["level"] == level]
-        if names:
-            print(f"  [{level}] " + ", ".join(names))
-    print("\n放行之前，可以先用 WebSearch 获取信息，结果注明“来自搜索摘要，未读原文”。")
+    if blocked:
+        core_blocked = [r for r in blocked if r["level"] == "核心"]
+        print(f"有 {len(blocked)} 个域名被网络策略拦截，其中核心数据源 {len(core_blocked)} 个。")
+        print("需要放行（复制到云环境设置 → Network access → Allowed domains）：")
+        for level in ("核心", "备用", "可选", "推荐"):
+            names = [r["host"] for r in blocked if r["level"] == level]
+            if names:
+                print(f"  [{level}] " + ", ".join(names))
+    if unreachable:
+        print(f"有 {len(unreachable)} 个域名没被拦截，但连接失败（超时或被对方断开），可能是对方服务器的问题，稍后再试：")
+        print("  " + ", ".join(f"{r['host']}（{r['level']}）" for r in unreachable))
+    print("\n取不到的数据可以先用 WebSearch 获取，结果注明“来自搜索摘要，未读原文”。")
     return 0
 
 

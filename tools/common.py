@@ -27,6 +27,9 @@ BROWSER_UA = (
 # SEC 要求 User-Agent 写明身份和联系邮箱：https://www.sec.gov/os/accessing-edgar-data
 SEC_UA = os.environ.get("SEC_USER_AGENT", "personal-investing-research contact@example.com")
 SEC_MIN_INTERVAL = 0.15  # SEC 限制每秒 10 次请求，这里留出余量
+# FRED 会把伪装成浏览器的请求挂起不回，必须用普通的工具标识
+TOOL_UA = "personal-investing-research/1.0"
+TOOL_UA_HOSTS = ("stlouisfed.org",)
 
 _last_sec_request = 0.0
 
@@ -54,6 +57,14 @@ def blocked_hint(host: str) -> str:
     )
 
 
+def user_agent_for(host: str) -> str:
+    if host.endswith("sec.gov"):
+        return SEC_UA
+    if host.endswith(TOOL_UA_HOSTS):
+        return TOOL_UA
+    return BROWSER_UA
+
+
 def _throttle_sec() -> None:
     global _last_sec_request
     wait = SEC_MIN_INTERVAL - (time.monotonic() - _last_sec_request)
@@ -73,7 +84,7 @@ def fetch(url: str, *, headers: dict | None = None, ttl: int = 0, timeout: int =
 
     is_sec = host.endswith("sec.gov")
     request_headers = {
-        "User-Agent": SEC_UA if is_sec else BROWSER_UA,
+        "User-Agent": user_agent_for(host),
         "Accept": "*/*",
         "Accept-Encoding": "gzip",
     }

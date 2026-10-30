@@ -79,6 +79,11 @@ class CommonTests(unittest.TestCase):
                 common.fetch("https://www.sec.gov/x", retries=0)
         self.assertIn("SEC_USER_AGENT", str(ctx.exception))
 
+    def test_user_agent_per_host(self):
+        self.assertEqual(common.user_agent_for("fred.stlouisfed.org"), common.TOOL_UA)  # 浏览器标识会被挂起
+        self.assertEqual(common.user_agent_for("data.sec.gov"), common.SEC_UA)
+        self.assertEqual(common.user_agent_for("query1.finance.yahoo.com"), common.BROWSER_UA)
+
     def test_print_table_aligns_cjk(self):
         out = io.StringIO()
         with redirect_stdout(out):
@@ -193,6 +198,8 @@ class SecTests(unittest.TestCase):
         self.assertIn("+150.0%", out)       # 同比：100 亿 vs 40 亿
         self.assertIn("-$35.0亿*", out)     # Q3 自由现金流 = 35 亿 - 70 亿，由累计值推算
         self.assertIn("$500.0亿", out)      # 现金取最晚申报的数
+        self.assertIn("短期有价证券", out)
+        self.assertIn("$300.0亿", out)
         self.assertIn("10.5亿股", out)      # 封面流通股数
 
     def test_negative_eps_format(self):
@@ -303,6 +310,43 @@ class MacroTests(unittest.TestCase):
         self.assertAlmostEqual(r["value"], (333 / 321 - 1) * 100)
         self.assertIsNone(r["1周前"])  # 月度数据没有“1 周前”
         self.assertAlmostEqual(r["1月前"], (332 / 320 - 1) * 100)
+
+
+    def test_stops_after_connection_failure(self):
+        net = FakeNet({"fred.stlouisfed.org": common.FetchError("无法连接 fred.stlouisfed.org：timed out")})
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(common, "fetch", net), mock.patch.object(sys, "argv", ["macro.py", "us10y", "vix", "cpi"]), \
+                redirect_stdout(out), mock.patch.object(sys, "stderr", err):
+            with self.assertRaises(common.FetchError):
+                macro.main()
+        fred_calls = [c for c in net.calls if "stlouisfed" in c]
+        self.assertEqual(len(fred_calls), 1)  # 第一个序列失败后不再逐个重试 FRED
+
+    def test_yahoo_fallback_when_fred_fails(self):
+        net = FakeNet({"fred.stlouisfed.org": common.FetchError("无法连接 fred.stlouisfed.org：timed out"),
+                       "query1.finance.yahoo.com": fixture("yahoo_chart.json")})
+        out = io.StringIO()
+        with mock.patch.object(common, "fetch", net), mock.patch.object(sys, "argv", ["macro.py", "us10y", "cpi"]), \
+                redirect_stdout(out), mock.patch.object(sys, "stderr", io.StringIO()):
+            self.assertEqual(macro.main(), 0)
+        text = out.getvalue()
+        self.assertIn("Yahoo", text)
+        self.assertIn("10.45", text)  # 样例收盘 104.5，超过 20 视为“收益率 × 10”的老口径
+        self.assertTrue(any("%5ETNX" in c for c in net.calls))
+
+
+class NetcheckTests(unittest.TestCase):
+    def test_unreachable_is_not_reported_as_ok(self):
+        import netcheck
+        statuses = {"fred.stlouisfed.org": ("连不上", "timed out"), "stooq.com": ("连不上", "reset")}
+        out = io.StringIO()
+        with mock.patch.object(netcheck, "probe", lambda h: statuses.get(h, ("可访问", "HTTP 200"))), \
+                mock.patch.object(sys, "argv", ["netcheck.py"]), redirect_stdout(out):
+            netcheck.main()
+        text = out.getvalue()
+        self.assertNotIn("全部数据源都能访问", text)
+        self.assertIn("连接失败", text)
+        self.assertIn("fred.stlouisfed.org（核心）", text)
 
 
 class PortfolioTests(unittest.TestCase):

@@ -245,6 +245,21 @@
       }
      ]
     }
+   },
+   "MarketableSecuritiesCurrent": {
+    "units": {
+     "USD": [
+      {
+       "end": "2026-09-30",
+       "val": 30000000000,
+       "fp": "Q3",
+       "form": "10-Q",
+       "filed": "2026-10-20",
+       "fy": 2026,
+       "accn": "x"
+      }
+     ]
+    }
    }
   }
  }

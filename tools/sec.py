@@ -74,11 +74,14 @@ METRICS = [
     ("sbc", "股权激励费用", ["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"], "flow", "USD", True),
     ("cash", "现金及等价物", ["CashAndCashEquivalentsAtCarryingValue",
                          "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"], "instant", "USD", False),
+    ("investments", "短期有价证券", ["MarketableSecuritiesCurrent", "ShortTermInvestments",
+                               "AvailableForSaleSecuritiesDebtSecuritiesCurrent"], "instant", "USD", False),
     ("debt", "长期债务", ["LongTermDebt", "LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations"],
      "instant", "USD", False),
     ("equity", "股东权益", ["StockholdersEquity"], "instant", "USD", False),
 ]
-DEFAULT_METRICS = ["revenue", "operating_income", "net_income", "eps", "ocf", "capex", "fcf", "cash", "debt"]
+DEFAULT_METRICS = ["revenue", "operating_income", "net_income", "eps", "ocf", "capex", "fcf", "cash", "investments",
+                   "debt"]
 
 TX_CODES = {
     "P": "公开市场买入", "S": "公开市场卖出", "A": "获授股份", "M": "期权行权", "X": "期权行权",
