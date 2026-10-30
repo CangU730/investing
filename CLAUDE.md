@@ -49,7 +49,7 @@
 | market-researcher | 行业或主题研究 |
 | earnings-reviewer | 财报点评 |
 
-本仓库的命令：`/brief` `/news` `/filings` `/analysts` `/deepdive` `/macro` `/portfolio` `/netcheck`
+本仓库的命令：`/daily`（每日持仓检查）`/brief` `/news` `/filings` `/analysts` `/deepdive` `/macro` `/portfolio` `/netcheck`
 来自上游的命令：`/earnings` `/earnings-preview` `/catalysts` `/thesis` `/sector` `/screen` `/initiate` `/model-update` `/morning-note`
 
 ## 来自 Anthropic financial-services 的 skill

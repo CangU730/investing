@@ -1,4 +1,5 @@
-symbol,shares,cost_basis,note
-QQQ,10,480.00,示例：纳指 100 ETF
-SPCX,20,145.00,示例：分批建仓第一笔
-CASH,3000,,示例：美元现金
+symbol,shares,cost_basis,note,currency,price
+QQQ,10,480.00,示例：纳指 100 ETF,,
+SPCX,20,145.00,示例：分批建仓第一笔,,
+FUND-EXAMPLE-HK,100,10.00,示例：港币计价的基金，手动填净值,HKD,10.50
+CASH,3000,,示例：美元现金,,

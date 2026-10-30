@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """持仓估值：读持仓 CSV，拉最新价格，算市值、浮动盈亏、仓位占比和集中度。
 
-CSV 格式（第一行是表头，cost_basis 是每股成本，单位美元；CASH 行的 shares 填现金金额）：
-  symbol,shares,cost_basis,note
-  SPCX,100,145.00,第一批
-  QQQ,20,480.00,
-  CASH,5000,,美元现金
+CSV 格式（第一行是表头，cost_basis 是每股成本；CASH 行的 shares 填现金金额）：
+  symbol,shares,cost_basis,note,currency,price
+  SPCX,100,145.00,第一批,,
+  QQQ,20,480.00,,,
+  CASH,5000,,美元现金,,
+  FUND-EXAMPLE-HK,100,10.00,港币基金,HKD,10.50
+currency 和 price 两列可以不写：currency 默认 USD；price 留空时自动拉行情，填了就按手动价格估值
+（适合没有美股报价的基金）。非美元资产按 Yahoo Finance 的汇率折算成美元。
 
 注意：仓库是公开的。真实持仓请放在 portfolio/holdings.csv，这个文件已被 .gitignore 排除，不会提交。
 
@@ -41,32 +44,44 @@ def load_holdings(path: Path) -> list[dict]:
         try:
             shares = float(r.get("shares") or 0)
             cost = float(r["cost_basis"]) if (r.get("cost_basis") or "").strip() else None
+            price = float(r["price"]) if (r.get("price") or "").strip() else None
         except ValueError:
             raise FetchError(f"{path} 第 {i} 行的数字格式不对：{r}") from None
-        holdings.append({"symbol": symbol, "shares": shares, "cost_basis": cost, "note": (r.get("note") or "").strip()})
+        holdings.append({"symbol": symbol, "shares": shares, "cost_basis": cost, "price": price,
+                         "currency": (r.get("currency") or "").strip().upper() or "USD",
+                         "note": (r.get("note") or "").strip()})
     return holdings
 
 
 def value_portfolio(holdings: list[dict]) -> tuple[list[dict], list[str]]:
+    """估值。price 和 cost_basis 保留原币种，value 和 pnl 统一折算成美元。"""
     positions, problems = [], []
+    usd_rates = {"USD": 1.0}
     for h in holdings:
-        if h["symbol"] == "CASH":
-            positions.append({**h, "price": 1.0, "value": h["shares"], "pnl": None, "pnl_pct": None, "source": "现金"})
-            continue
+        ccy = h["currency"]
         try:
-            q = get_quote(h["symbol"])
+            if ccy not in usd_rates:
+                usd_rates[ccy] = 1 / get_quote(f"USD{ccy}=X")["price"]
+            if h["symbol"] == "CASH":
+                price, change, source = 1.0, None, "现金"
+            elif h["price"] is not None:
+                price, change, source = h["price"], None, "手动"
+            else:
+                q = get_quote(h["symbol"])
+                price, change, source = q["price"], q.get("change_pct"), q["source"]
         except BlockedError:
             raise
         except FetchError as e:
             problems.append(f"{h['symbol']}：{e}")
-            positions.append({**h, "price": None, "value": None, "pnl": None, "pnl_pct": None, "source": "取价失败"})
+            positions.append({**h, "value": None, "pnl": None, "pnl_pct": None, "source": "取价失败"})
             continue
-        value = h["shares"] * q["price"]
-        cost_total = h["shares"] * h["cost_basis"] if h["cost_basis"] else None
+        rate = usd_rates[ccy]
+        value = h["shares"] * price * rate
+        cost_total = h["shares"] * h["cost_basis"] * rate if h["cost_basis"] else None
         positions.append({
-            **h, "price": q["price"], "change_pct": q.get("change_pct"), "value": value,
+            **h, "price": price, "change_pct": change, "value": value,
             "pnl": value - cost_total if cost_total else None,
-            "pnl_pct": value / cost_total - 1 if cost_total else None, "source": q["source"],
+            "pnl_pct": value / cost_total - 1 if cost_total else None, "source": source,
         })
     total = sum(p["value"] for p in positions if p["value"] is not None)
     for p in positions:
@@ -89,8 +104,9 @@ def main() -> int:
         return 1
     positions, problems = value_portfolio(load_holdings(path))
     total = sum(p["value"] for p in positions if p["value"] is not None)
-    cost = sum(p["shares"] * p["cost_basis"] for p in positions if p["cost_basis"] and p["value"] is not None)
-    invested = sum(p["value"] for p in positions if p["cost_basis"] and p["value"] is not None)
+    with_cost = [p for p in positions if p["cost_basis"] and p["value"] is not None]
+    invested = sum(p["value"] for p in with_cost)
+    cost = invested - sum(p["pnl"] for p in with_cost)
     fx = None
     if args.cny:
         try:
@@ -102,18 +118,23 @@ def main() -> int:
         print(json.dumps({"positions": positions, "total": total, "usdcny": fx}, ensure_ascii=False, indent=2))
         return 0
 
+    def local_price(v, ccy):
+        if v is None:
+            return "—"
+        return fmt_price(v) if ccy == "USD" else f"{ccy} {v:,.2f}"
+
     rows = []
     for p in sorted(positions, key=lambda x: x["value"] or 0, reverse=True):
         rows.append([
             p["symbol"], f"{p['shares']:,.4g}" if p["symbol"] != "CASH" else "—",
-            fmt_price(p["cost_basis"]) if p["cost_basis"] else "—",
-            fmt_price(p["price"]) if p["symbol"] != "CASH" else "—",
+            local_price(p["cost_basis"], p["currency"]) if p["cost_basis"] else "—",
+            local_price(p.get("price"), p["currency"]) if p["symbol"] != "CASH" else "—",
             fmt_pct(p.get("change_pct"), 2) if p.get("change_pct") is not None else "—",
             fmt_money(p["value"]), fmt_money(p["pnl"]) if p["pnl"] is not None else "—",
             fmt_pct(p["pnl_pct"]) if p["pnl_pct"] is not None else "—",
             fmt_pct(p["weight"], signed=False) if p["weight"] is not None else "—", p["note"],
         ])
-    print(f"持仓估值（{path.name}）")
+    print(f"持仓估值（{path.name}；市值和盈亏折算成美元，成本价和现价为原币种）")
     print_table(["代码", "股数", "成本价", "现价", "今日", "市值", "浮动盈亏", "盈亏%", "占比", "备注"], rows,
                 align="lrrrrrrrrl")
     line = f"\n总市值 {fmt_money(total)}"
@@ -127,7 +148,7 @@ def main() -> int:
     for p in positions:
         if p["symbol"] != "CASH" and p["weight"] and p["weight"] > 0.2:
             warnings.append(f"{p['symbol']} 占 {fmt_pct(p['weight'], signed=False)}，单一持仓超过 20%，集中度偏高")
-    cash = sum(p["value"] for p in positions if p["symbol"] == "CASH")
+    cash = sum(p["value"] for p in positions if p["symbol"] == "CASH" and p["value"] is not None)
     if total:
         print(f"现金占比 {fmt_pct(cash / total, signed=False)}")
     for w in warnings:

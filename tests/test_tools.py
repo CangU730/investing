@@ -354,9 +354,22 @@ class PortfolioTests(unittest.TestCase):
         holdings = portfolio.load_holdings(ROOT / "portfolio" / "holdings.example.csv")
         self.assertTrue(any(h["symbol"] == "CASH" for h in holdings))
 
+    def test_manual_price_in_hkd(self):
+        holdings = [{"symbol": "FUND-X", "shares": 10, "cost_basis": 100.0, "price": 78.0, "currency": "HKD", "note": ""},
+                    {"symbol": "CASH", "shares": 780, "cost_basis": None, "price": None, "currency": "HKD", "note": ""}]
+        with mock.patch.object(portfolio, "get_quote", return_value={"price": 7.8, "source": "test"}) as gq:
+            positions, problems = portfolio.value_portfolio(holdings)
+        self.assertEqual(problems, [])
+        gq.assert_called_once_with("USDHKD=X")  # 汇率只取一次，手动价格不取行情
+        fund, cash = positions
+        self.assertAlmostEqual(fund["value"], 100.0)      # 10 × HK$78 ÷ 7.8
+        self.assertAlmostEqual(fund["pnl"], -28.2051, 3)  # 成本 HK$1,000 ≈ $128.21
+        self.assertAlmostEqual(cash["value"], 100.0)
+        self.assertEqual(fund["source"], "手动")
+
     def test_valuation(self):
-        holdings = [{"symbol": "EXMP", "shares": 10, "cost_basis": 100.0, "note": ""},
-                    {"symbol": "CASH", "shares": 500, "cost_basis": None, "note": ""}]
+        holdings = [{"symbol": "EXMP", "shares": 10, "cost_basis": 100.0, "price": None, "currency": "USD", "note": ""},
+                    {"symbol": "CASH", "shares": 500, "cost_basis": None, "price": None, "currency": "USD", "note": ""}]
         fake_quote = {"price": 104.5, "change_pct": 0.1, "source": "test"}
         with mock.patch.object(portfolio, "get_quote", return_value=fake_quote):
             positions, problems = portfolio.value_portfolio(holdings)
